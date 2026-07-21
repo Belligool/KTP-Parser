@@ -32,6 +32,11 @@ class KTPExtractor:
                 nama_match = NAMA_REGEX.search(line)
                 if nama_match:
                     ktp_data["Nama"] = nama_match.group(1).replace("TEMPAT", "").strip()
+                elif ktp_data["NIK"] and not ktp_data["Tempat/Tgl Lahir"]:
+                    if line.isupper() and not any(char.isdigit() for char in line):
+                        if not re.search(r'\b(ALAMAT|RT|RW|KEL|DESA|PROVINSI)\b', line, re.IGNORECASE):
+                            clean_line = re.sub(r'^.*?[:;]\s*', '', line)
+                            ktp_data["Nama"] = self.validator.clean_name(clean_line.replace("TEMPAT", "").strip())
                     
             # TTL
             if not ktp_data["Tempat/Tgl Lahir"]:

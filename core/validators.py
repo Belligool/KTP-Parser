@@ -30,3 +30,15 @@ class KTPValidator:
         if len(cleaned) == 16:
             return cleaned
         return ""
+
+    def clean_name(self, raw_name):
+        if not raw_name:
+            return ""
+        text_replacements = {
+            '0': 'O', '1': 'I', '2': 'Z', '5': 'S', '8': 'B',
+            'Q': 'O', 'O': 'Q' 
+        }
+        
+        cleaned = "".join([text_replacements.get(c, c) for c in raw_name.upper()])
+        cleaned = "".join([c for c in cleaned if c.isalpha() or c in " .,'-"])
+        return cleaned.strip()

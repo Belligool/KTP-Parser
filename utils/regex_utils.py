@@ -10,4 +10,4 @@ NAMA_REGEX = re.compile(r'(?:Nama|Narna|Name|Nema|Hama|Harna|Hame|Hema|Mama|Marn
 TTL_REGEX = re.compile(r'(?:Lahir|Tahir|Lshir|Lahr|Lahir|Lahir:|Lahir.|Lahir,|Lah1r|Lahlr|Lahirr|Lahirh|Lahiri|Lahirl|LahirI|LahirT|Laher|Lehir|Lohir|Lahirn|Lahirm|Labir|Lakir|Lakir|Sahir|Jahir|Iahir)\s*[:;]?\s*([A-Za-z\s\.\,]+,\s*\d{2}-\d{2}-\d{4})', re.IGNORECASE)
 
 # Strict legal dictionary
-STATUS_REGEX = re.compile(r'\b(BELUM KAWIN|KAWIN|CERAI HIDUP|CERAI MATI|NOT MARRIED|MARRIED|DIVORCE)\b', re.IGNORECASE)
+STATUS_REGEX = re.compile(r'\b(BELUM KAWIN|KAWIN|CERAI HIDUP|CERAI MATI|NOT MARRIED|MARRIED|DIVORCE|BELUM NIKAH)\b', re.IGNORECASE)

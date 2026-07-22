@@ -2,7 +2,7 @@ import difflib
 
 class KTPValidator:
     def __init__(self):
-        self.valid_statuses = ["BELUM KAWIN", "KAWIN", "CERAI HIDUP", "CERAI MATI"]
+        self.valid_statuses = ["BELUM KAWIN", "KAWIN", "CERAI HIDUP", "CERAI MATI", "BELUM NIKAH"]
         self.nik_replacements = {
             'O': '0', 'o': '0', 'D': '0', 'Q': '0',
             'I': '1', 'l': '1', 'i': '1', '|': '1', ']': '1', '[': '1',

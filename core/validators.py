@@ -36,7 +36,6 @@ class KTPValidator:
             return ""
         text_replacements = {
             '0': 'O', '1': 'I', '2': 'Z', '5': 'S', '8': 'B',
-            'Q': 'O', 'O': 'Q' 
         }
         
         cleaned = "".join([text_replacements.get(c, c) for c in raw_name.upper()])

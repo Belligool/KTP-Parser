@@ -29,7 +29,7 @@ class OCREngine:
             base_name = os.path.basename(pdf_path).replace('.pdf', f'_page_{page_num}.png')
             debug_path = os.path.join(debug_dir, base_name)
             clean_img.save(debug_path)
-            page_text = pytesseract.image_to_string(clean_img, lang='ind', config='--psm 6')
+            page_text = pytesseract.image_to_string(clean_img, lang='ind+eng', config='--psm 6')
             raw_text += page_text + "\n"
             
         return raw_text

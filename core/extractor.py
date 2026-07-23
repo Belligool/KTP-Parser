@@ -52,7 +52,9 @@ class KTPExtractor:
                 break
             nama_match = NAMA_REGEX.search(line)
             if nama_match:
-                ktp_data["Nama"] = nama_match.group(1).replace("TEMPAT", "").strip()
+                raw_nama = nama_match.group(1).replace("TEMPAT", "").strip()
+                ktp_data["Nama"] = self.validator.clean_name(raw_nama)
+                break
             if re.match(r'^(Nama|Narna|Name|Nema)\s*[:;]?$', line, re.IGNORECASE):
                 for j in range(i + 1, min(i + 4, len(lines))):
                     next_line = lines[j]

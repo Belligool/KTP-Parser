@@ -1,9 +1,11 @@
 import os
 import csv
+import time
 from core.ocr_engine import OCREngine
 from core.extractor import KTPExtractor
 
 def main():
+    start_time = time.perf_counter()
     target_dir = 'tests/sample_pdfs/'
     
     if not os.path.exists(target_dir):
@@ -21,6 +23,9 @@ def main():
             pdf_path = os.path.join(target_dir, filename)
             print(f"Scanning: {filename}...")
             raw_text = ocr.extract(pdf_path)
+            if filename in ('sue.pdf', 'images.pdf'):
+                with open(f'tests/results/{filename}_raw.txt', 'w', encoding='utf-8') as f:
+                    f.write(raw_text)
             
             if raw_text:
                 parsed_data = extractor.extract_data(raw_text)
@@ -46,6 +51,10 @@ def main():
         print(f"Exported {len(all_ktp_records)} KTP records to {csv_filename}")
     else:
         print("\nNo KTP data was extracted from the batch.")
+    end_time = time.perf_counter()
+    execution_time = end_time - start_time
+
+    print(f"Code took {execution_time:.6f} seconds to complete.")
 
 if __name__ == "__main__":
     main()

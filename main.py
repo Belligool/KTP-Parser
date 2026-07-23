@@ -19,9 +19,6 @@ def main():
             pdf_path = os.path.join(target_dir, filename)
             print(f"Scanning: {filename}...")
             raw_text, low_confidence_words = ocr.extract(pdf_path)
-            if filename == 'sue.pdf':
-                with open('tests/results/sue_raw.txt', 'w', encoding='utf-8') as f:
-                    f.write(raw_text)
             if raw_text:
                 parsed_data = extractor.extract_data(raw_text, low_confidence_words)
                 parsed_data['Source File'] = filename

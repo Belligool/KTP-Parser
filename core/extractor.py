@@ -6,16 +6,23 @@ class KTPExtractor:
     def __init__(self):
         self.validator = KTPValidator()
 
-    def extract_data(self, raw_text):
+    def extract_data(self, raw_text, low_confidence_words=None):
         # Keep lines for Name fallback, but also create a flattened block of text
         lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
         joined_text = " ".join(lines)
         
+        normalized_low_conf = set()
+        for w in (low_confidence_words or []):
+            cleaned = re.sub(r'[^A-Za-z0-9]', '', w).upper()
+            if cleaned:
+                normalized_low_conf.add(cleaned)
+
         ktp_data = {
             "NIK": "",
             "Nama": "",
             "Tempat/Tgl Lahir": "",
-            "Status Pernikahan": ""
+            "Status Pernikahan": "",
+            "Review Needed": ""
         }
         
         # 1. PATTERN HUNT: NIK (Look for 16 digits anywhere in the document)
@@ -65,5 +72,19 @@ class KTPExtractor:
                             clean_line = re.sub(r'^.*?[:;]\s*', '', next_line)
                             ktp_data["Nama"] = self.validator.clean_name(clean_line.replace("TEMPAT", "").strip())
                             break
-                            
+
+        # 5. QA Check
+        if normalized_low_conf:
+            flagged_fields = []
+            for field_name in ("NIK", "Nama", "Tempat/Tgl Lahir", "Status Pernikahan"):
+                value = ktp_data[field_name]
+                if not value:
+                    continue
+                for token in re.split(r'[\s,]+', value):
+                    cleaned_token = re.sub(r'[^A-Za-z0-9]', '', token).upper()
+                    if cleaned_token and cleaned_token in normalized_low_conf:
+                        flagged_fields.append(field_name)
+                        break
+            ktp_data["Review Needed"] = ", ".join(flagged_fields)
+
         return ktp_data

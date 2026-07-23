@@ -10,7 +10,6 @@ class KTPExtractor:
         # Keep lines for Name fallback, but also create a flattened block of text
         lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
         joined_text = " ".join(lines)
-        
         normalized_low_conf = set()
         for w in (low_confidence_words or []):
             cleaned = re.sub(r'[^A-Za-z0-9]', '', w).upper()
@@ -38,15 +37,19 @@ class KTPExtractor:
                     break
                     
         # 2. PATTERN HUNT: TTL (Look for the undeniable City, DD-MM-YYYY format anywhere)
-        # We limit the city search to ~30 chars behind the comma to prevent grabbing the whole document
-        ttl_match = re.search(r'([A-Za-z\s\-]{3,30})\s*,\s*([\dOBISZ]{2}-[\dOBISZ]{2}-[\dOBISZ]{4})', joined_text)
+        ttl_match = re.search(
+            r'([A-Za-z\s\-]{3,30})\s*,\s*'
+            r'([\dOBISZ]{2})-?([\dOBISZ]{2})-?([\dOBISZ]{4})',
+            joined_text
+        )
         if ttl_match:
             city_raw = ttl_match.group(1)
             # Strip out any trailing OCR labels that might have bled into the city name
             clean_city = re.sub(r'(?i)(Tempat|Tgl|Lahir|Lahe|Jenis|Kelamin|Alamat|Nama|NIK)', '', city_raw).strip()
             # Grab just the final word(s) before the comma
             city = " ".join(clean_city.split()[-2:]) 
-            ktp_data["Tempat/Tgl Lahir"] = f"{city.upper()}, {ttl_match.group(2)}"
+            day, month, year = ttl_match.group(2), ttl_match.group(3), ttl_match.group(4)
+            ktp_data["Tempat/Tgl Lahir"] = f"{city.upper()}, {day}-{month}-{year}"
             
         # 3. PATTERN HUNT: Status (Look for exact legal keywords like MARRIED or KAWIN anywhere)
         status_match = STATUS_REGEX.search(joined_text)
@@ -73,7 +76,8 @@ class KTPExtractor:
                             ktp_data["Nama"] = self.validator.clean_name(clean_line.replace("TEMPAT", "").strip())
                             break
 
-        # 5. QA Check
+        # 5. QA FLAG: check whether any token in each extracted field matches
+        # a word tesseract itself scored below the confidence threshold.
         if normalized_low_conf:
             flagged_fields = []
             for field_name in ("NIK", "Nama", "Tempat/Tgl Lahir", "Status Pernikahan"):

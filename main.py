@@ -1,10 +1,13 @@
 import os
+import time
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font
+from openpyxl.utils import get_column_letter
 from core.ocr_engine import OCREngine
 from core.extractor import KTPExtractor
 
 def main():
+    start_time = time.perf_counter()
     target_dir = 'tests/sample_pdfs/'
     
     if not os.path.exists(target_dir):
@@ -54,13 +57,32 @@ def main():
                 review_cell = ws.cell(row=row_idx, column=6)
                 review_cell.fill = red_fill
                 review_cell.font = red_font
-                
+        for col in ws.columns:
+            max_length = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    if cell.value:
+                        cell_length = len(str(cell.value))
+                        if cell_length > max_length:
+                            max_length = cell_length
+                except:
+                    pass
+            adjusted_width = max_length + 2
+            ws.column_dimensions[col_letter].width = adjusted_width
+
         wb.save(excel_filename)
             
         print(f"\n- Woo Yessir -")
         print(f"Exported {len(all_ktp_records)} KTP records to {excel_filename}")
     else:
         print("\nNo KTP data was extracted from the batch.")
+
+    end_time = time.perf_counter()
+    total_seconds = end_time - start_time
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    print(f"Code took {int(hours)} hours, {int(minutes)} minutes, {seconds:.2f} seconds to execute.")
 
 if __name__ == "__main__":
     main()

@@ -18,3 +18,26 @@ def preprocess_for_ocr(pil_image):
     kernel = np.ones((2,2), np.uint8)
     thickened = cv2.erode(thresh, kernel, iterations=1)
     return Image.fromarray(thickened)
+
+def preprocess_nik(pil_image):
+    img = np.array(pil_image)
+    if len(img.shape) == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img
+    # enlarge A LOT
+    gray = cv2.resize(gray, None, fx=5, fy=5, interpolation=cv2.INTER_CUBIC)
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+    variants = []
+    # Variant 1 : Otsu
+    _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    variants.append(Image.fromarray(otsu))
+    # Variant 2 : Adaptive
+    adaptive = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11)
+    variants.append(Image.fromarray(adaptive))
+    # Variant 3 : Inverted
+    _, inv = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    variants.append(Image.fromarray(inv))
+
+    return variants

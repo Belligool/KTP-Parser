@@ -5,7 +5,7 @@ import os
 import re
 import numpy as np
 from PIL import Image
-from utils.image_prep import preprocess_for_ocr
+from utils.image_prep import *
 
 class OCREngine:
     def __init__(self, confidence_threshold=60, merge_gap_ratio=0.25, merge_confidence_ceiling=90):
@@ -42,28 +42,48 @@ class OCREngine:
                 gap_len = 0
         return max_gap / height
 
-    def _extract_nik_candidate(self, clean_img, data):
-        n = len(data['text'])
+    def _extract_nik_candidate(self, original_img, data):
+        n = len(data["text"])
+        best_candidate = None
+        best_score = -999
+        configs = [
+            "--psm 7 -c tessedit_char_whitelist=0123456789",
+            "--psm 8 -c tessedit_char_whitelist=0123456789",
+            "--psm 13 -c tessedit_char_whitelist=0123456789",
+        ]
         for i in range(n):
-            word = data['text'][i].strip().upper().rstrip(':;-. ')
-            if word != 'NIK':
-                continue
-            label_right = data['left'][i] + data['width'][i]
-            top, height = data['top'][i], data['height'][i]
-            img_w, img_h = clean_img.size
-            pad = int(height * 0.3)
-            crop = clean_img.crop((
-                label_right, max(0, top - pad),
-                img_w, min(img_h, top + height + pad)
-            ))
-            crop = crop.resize((crop.width * 2, crop.height * 2), Image.LANCZOS)
-            text = pytesseract.image_to_string(
-                crop, lang='eng',
-                config='--psm 7 -c tessedit_char_whitelist=0123456789'
+            word = data["text"][i].strip().upper()
+            normalized = (
+                word.replace("1", "I")
+                    .replace("L", "I")
+                    .replace("|", "I")
+                    .replace(":", "")
+                    .replace(".", "")
             )
-            digits = re.sub(r'\D', '', text)
-            return digits or None
-        return None
+            if normalized != "NIK":
+                continue
+            left = data["left"][i]
+            top = data["top"][i]
+            width = data["width"][i]
+            height = data["height"][i]
+            img_w, img_h = original_img.size
+            x1 = left + width + int(height * 1.0)
+            x2 = min(img_w, x1 + int(img_w * 0.45))
+            y1 = max(0, top - int(height * 0.5))
+            y2 = min(img_h, top + int(height * 1.5))
+            crop = original_img.crop((x1, y1, x2, y2))
+            for variant in preprocess_nik(crop):
+                for cfg in configs:
+                    text = pytesseract.image_to_string(variant, lang="eng", config=cfg)
+                    digits = re.sub(r"\D", "", text)
+                    score = 0
+                    score -= abs(16 - len(digits)) * 20
+                    if len(digits) == 16:
+                        score += 100
+                    if score > best_score:
+                        best_score = score
+                        best_candidate = digits
+            return best_candidate
 
     def extract(self, pdf_path):
         """Returns (raw_text, flagged_words, nik_candidate).
@@ -87,6 +107,7 @@ class OCREngine:
             pix = page.get_pixmap(matrix=mat)
             img = Image.open(io.BytesIO(pix.tobytes("png")))
             clean_img = preprocess_for_ocr(img)
+            gray_original = img.convert("L")
             debug_dir = 'tests/results/debug_images/'
             os.makedirs(debug_dir, exist_ok=True)
             base_name = os.path.basename(pdf_path).replace('.pdf', f'_page_{page_num}.png')
@@ -121,6 +142,6 @@ class OCREngine:
                     flagged_words.append(word)
  
             if nik_candidate is None:
-                nik_candidate = self._extract_nik_candidate(clean_img, data)
+                nik_candidate = self._extract_nik_candidate(gray_original, data)
  
         return raw_text, flagged_words, nik_candidate

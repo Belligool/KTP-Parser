@@ -24,12 +24,15 @@ def main():
         if filename.lower().endswith('.pdf'):
             pdf_path = os.path.join(target_dir, filename)
             print(f"Scanning: {filename}...")
-            raw_text, low_confidence_words = ocr.extract(pdf_path)
+            raw_text, low_confidence_words, nik_candidate = ocr.extract(pdf_path)
             
             if raw_text:
-                parsed_data = extractor.extract_data(raw_text, low_confidence_words)
+                parsed_data = extractor.extract_data(raw_text, low_confidence_words, nik_candidate)
                 parsed_data['Source File'] = filename
                 all_ktp_records.append(parsed_data)
+                if filename in ('issok.pdf', 'emma.pdf'):
+                    with open(f'tests/results/{filename}_raw.txt', 'w', encoding='utf-8') as f:
+                        f.write(raw_text)
             else:
                 print(f"  -> WARNING: No text could be extracted from {filename}")
                 
@@ -43,7 +46,6 @@ def main():
         wb = Workbook()
         ws = wb.active
         ws.title = "KTP Data"
-        
         ws.append(headers)
         
         red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
@@ -72,7 +74,8 @@ def main():
             ws.column_dimensions[col_letter].width = adjusted_width
 
         wb.save(excel_filename)
-            
+        
+        
         print(f"\n- Woo Yessir -")
         print(f"Exported {len(all_ktp_records)} KTP records to {excel_filename}")
     else:

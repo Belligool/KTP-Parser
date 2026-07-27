@@ -6,7 +6,7 @@ class KTPExtractor:
     def __init__(self):
         self.validator = KTPValidator()
 
-    def extract_data(self, raw_text, low_confidence_words=None):
+    def extract_data(self, raw_text, low_confidence_words=None, nik_candidate=None):
         # Keep lines for Name fallback, but also create a flattened block of text
         lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
         joined_text = " ".join(lines)
@@ -35,11 +35,21 @@ class KTPExtractor:
                 if cleaned:
                     ktp_data["NIK"] = cleaned
                     break
+            if not ktp_data["NIK"]:
+                if nik_candidate:
+                    ktp_data["NIK"] = nik_candidate
+                else:
+                    near_nik = re.search(
+                        r'NIK\D{0,5}(\d{14,18})', joined_text, re.IGNORECASE
+                    )
+                    if near_nik:
+                        ktp_data["NIK"] = near_nik.group(1)
+        nik_needs_review = bool(ktp_data["NIK"]) and len(ktp_data["NIK"]) != 16
                     
         # 2. PATTERN HUNT: TTL (Look for the undeniable City, DD-MM-YYYY format anywhere)
         ttl_match = re.search(
             r'([A-Za-z\s\-]{3,30})\s*,\s*'
-            r'([\dOBISZ]{2})-?([\dOBISZ]{2})-?([\dOBISZ]{4})',
+            r'([\dOBISZ]{2})[\s\-]*([\dOBISZ]{2})[\s\-]*([\dOBISZ]{4})',
             joined_text
         )
         if ttl_match:
@@ -50,6 +60,15 @@ class KTPExtractor:
             city = " ".join(clean_city.split()[-2:]) 
             day, month, year = ttl_match.group(2), ttl_match.group(3), ttl_match.group(4)
             ktp_data["Tempat/Tgl Lahir"] = f"{city.upper()}, {day}-{month}-{year}"
+            try:
+                if not (1 <= int(day) <= 31 and 1 <= int(month) <= 12):
+                    ttl_needs_review = True
+                else:
+                    ttl_needs_review = False
+            except ValueError:
+                ttl_needs_review = True
+        else:
+            ttl_needs_review = False
             
         # 3. PATTERN HUNT: Status (Look for exact legal keywords like MARRIED or KAWIN anywhere)
         status_match = STATUS_REGEX.search(joined_text)
@@ -78,8 +97,8 @@ class KTPExtractor:
 
         # 5. QA FLAG: check whether any token in each extracted field matches
         # a word tesseract itself scored below the confidence threshold.
+        flagged_fields = []
         if normalized_low_conf:
-            flagged_fields = []
             for field_name in ("NIK", "Nama", "Tempat/Tgl Lahir", "Status Pernikahan"):
                 value = ktp_data[field_name]
                 if not value:
@@ -89,6 +108,10 @@ class KTPExtractor:
                     if cleaned_token and cleaned_token in normalized_low_conf:
                         flagged_fields.append(field_name)
                         break
-            ktp_data["Review Needed"] = ", ".join(flagged_fields)
+        if nik_needs_review and "NIK" not in flagged_fields:
+            flagged_fields.append("NIK")
+        if ttl_needs_review and "Tempat/Tgl Lahir" not in flagged_fields:
+            flagged_fields.append("Tempat/Tgl Lahir")
+        ktp_data["Review Needed"] = ", ".join(flagged_fields)
 
         return ktp_data

@@ -6,6 +6,7 @@ import re
 import numpy as np
 from PIL import Image
 from utils.image_prep import *
+from utils.digit_segmenter import segment_digits
 
 class OCREngine:
     def __init__(self, confidence_threshold=60, merge_gap_ratio=0.25, merge_confidence_ceiling=90):
@@ -72,6 +73,13 @@ class OCREngine:
             y1 = max(0, top - int(height * 0.5))
             y2 = min(img_h, top + int(height * 1.5))
             crop = original_img.crop((x1, y1, x2, y2))
+            digit_images = segment_digits(crop)
+            if len(digit_images) >= 14:
+                nik = ""
+                for digit in digit_images:
+                    nik += self._ocr_single_digit(digit)
+                if len(nik) == 16:
+                    return nik
             for variant in preprocess_nik(crop):
                 for cfg in configs:
                     text = pytesseract.image_to_string(variant, lang="eng", config=cfg)
@@ -145,3 +153,10 @@ class OCREngine:
                 nik_candidate = self._extract_nik_candidate(gray_original, data)
  
         return raw_text, flagged_words, nik_candidate
+
+    def _ocr_single_digit(self, img):
+        text = pytesseract.image_to_string(img, lang="eng", config="--psm 10 -c tessedit_char_whitelist=0123456789")
+        text = re.sub(r"\D", "", text)
+        if text:
+            return text[0]
+        return ""

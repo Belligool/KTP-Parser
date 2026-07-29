@@ -15,11 +15,16 @@ def segment_digits(pil_img):
     digits = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
-        if h < 20 or w < 3:
+        area = w * h
+        if area < 80:
+            continue
+        if w > h * 1.3:
+            continue
+        if h < 18:
             continue
         roi = thresh[y:y+h, x:x+w]
         roi = cv2.copyMakeBorder(roi, 10, 10, 10, 10, cv2.BORDER_CONSTANT, value=0)
-        roi = cv2.resize(roi, (64,64), interpolation=cv2.INTER_CUBIC)
-        digits.append((x, Image.fromarray(255-roi)))
+        roi = cv2.resize(roi, (64, 64), interpolation=cv2.INTER_CUBIC)
+        digits.append((x, Image.fromarray(255 - roi)))
     digits.sort(key=lambda x: x[0])
     return [d for _, d in digits]

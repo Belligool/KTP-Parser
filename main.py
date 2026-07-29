@@ -30,9 +30,6 @@ def main():
                 parsed_data = extractor.extract_data(raw_text, low_confidence_words, nik_candidate)
                 parsed_data['Source File'] = filename
                 all_ktp_records.append(parsed_data)
-                if filename in ('issok.pdf', 'emma.pdf'):
-                    with open(f'tests/results/{filename}_raw.txt', 'w', encoding='utf-8') as f:
-                        f.write(raw_text)
             else:
                 print(f"  -> WARNING: No text could be extracted from {filename}")
                 
@@ -59,19 +56,14 @@ def main():
                 review_cell = ws.cell(row=row_idx, column=6)
                 review_cell.fill = red_fill
                 review_cell.font = red_font
-        for col in ws.columns:
+        ws.column_dimensions["A"].width = 12
+        for col_idx in range(2, ws.max_column + 1):
+            col_letter = get_column_letter(col_idx)
             max_length = 0
-            col_letter = col[0].column_letter
-            for cell in col:
-                try:
-                    if cell.value:
-                        cell_length = len(str(cell.value))
-                        if cell_length > max_length:
-                            max_length = cell_length
-                except:
-                    pass
-            adjusted_width = max_length + 2
-            ws.column_dimensions[col_letter].width = adjusted_width
+            for cell in ws[col_letter]:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max_length + 2
 
         wb.save(excel_filename)
         

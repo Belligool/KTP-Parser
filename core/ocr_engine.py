@@ -10,7 +10,7 @@ from utils.digit_segmenter import segment_digits
 
 class OCREngine:
     def __init__(self, confidence_threshold=60, merge_gap_ratio=0.25, merge_confidence_ceiling=90):
-        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe' #replace this with your tesseract folder
         # Words tesseract reports below this confidence (0-100) get flagged
         # for manual review instead of silently passed through.
         self.confidence_threshold = confidence_threshold

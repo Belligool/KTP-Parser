@@ -1,5 +1,6 @@
 opencv-python
 numpy
-pytesseract
-PyMuPDF
 Pillow
+PyMuPDF
+pytesseract
+openpyxl

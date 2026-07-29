@@ -40,7 +40,7 @@ KTP Parser/
 ├── main.py
 └── README.md
 ```
-
+**IMPORTANT!** Make sure to create the tests folder.
 ---
 
 ## Requirements

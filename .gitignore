@@ -1,3 +1,10 @@
-tests/
+tests/results/ktp_export_results.xlsx
+tests/results/debug_images/*
+tests/sample_pdfs/*
+tests/ktp test.psd
 core/__pycache__/
 utils/__pycache__/
+
+!tests/results/debug_images/notes.txt
+!tests/results/notes.txt
+!tests/sample_pdfs/notes.txt

@@ -79,7 +79,7 @@ Place all KTP PDF files inside:
 tests/sample_pdfs/
 ```
 
-Run:
+Run (in main folder):
 
 ```bash
 python main.py
@@ -95,7 +95,6 @@ including:
 
 - `ktp_export_results.xlsx`
 - preprocessed debug images
-- optional raw OCR text
 
 ---
 

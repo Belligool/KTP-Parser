@@ -7,7 +7,6 @@ class KTPExtractor:
         self.validator = KTPValidator()
 
     def extract_data(self, raw_text, low_confidence_words=None, nik_candidate=None):
-        # Keep lines for Name fallback, but also create a flattened block of text
         lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
         joined_text = " ".join(lines)
         normalized_low_conf = set()
@@ -24,7 +23,7 @@ class KTPExtractor:
             "Review Needed": ""
         }
         
-        # 1. PATTERN HUNT: NIK (Look for 16 digits anywhere in the document)
+        # 1. PATTERN HUNT: NIK
         nik_match = NIK_REGEX.search(joined_text)
         if nik_match:
             ktp_data["NIK"] = nik_match.group(1)
@@ -46,7 +45,7 @@ class KTPExtractor:
                         ktp_data["NIK"] = near_nik.group(1)
         nik_needs_review = bool(ktp_data["NIK"]) and len(ktp_data["NIK"]) != 16
                     
-        # 2. PATTERN HUNT: TTL (Look for the undeniable City, DD-MM-YYYY format anywhere)
+        # 2. PATTERN HUNT: TTL
         ttl_match = re.search(
             r'([A-Za-z\s\-]{3,30})\s*,\s*'
             r'([\dOBISZ]{2})[\s\-]*([\dOBISZ]{2})[\s\-]*([\dOBISZ]{4})',
@@ -70,7 +69,7 @@ class KTPExtractor:
         else:
             ttl_needs_review = False
             
-        # 3. PATTERN HUNT: Status (Look for exact legal keywords like MARRIED or KAWIN anywhere)
+        # 3. PATTERN HUNT: Status
         status_match = STATUS_REGEX.search(joined_text)
         if status_match:
             ktp_data["Status Pernikahan"] = status_match.group(1).upper().strip()
@@ -95,8 +94,7 @@ class KTPExtractor:
                             ktp_data["Nama"] = self.validator.clean_name(clean_line.replace("TEMPAT", "").strip())
                             break
 
-        # 5. QA FLAG: check whether any token in each extracted field matches
-        # a word tesseract itself scored below the confidence threshold.
+        # 5. QA FLAG
         flagged_fields = []
         if normalized_low_conf:
             for field_name in ("NIK", "Nama", "Tempat/Tgl Lahir", "Status Pernikahan"):

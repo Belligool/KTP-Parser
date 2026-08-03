@@ -11,21 +11,9 @@ from utils.digit_classifier import classify_digit
 
 class OCREngine:
     def __init__(self, confidence_threshold=60, merge_gap_ratio=0.25, merge_confidence_ceiling=90):
-        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe' #replace this with your tesseract folder
-        # Words tesseract reports below this confidence (0-100) get flagged
-        # for manual review instead of silently passed through.
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
         self.confidence_threshold = confidence_threshold
-        # Tesseract's confidence score reflects certainty about character
-        # shapes, not whether it inserted a space correctly, so a silently
-        # merged word (e.g. "SUESTORM" from "SUE STORM") can still score high
-        # confidence. As a second, independent check, we look for an unusually
-        # wide gap of blank pixels *inside* a single word's own bounding box,
-        # relative to that word's own height.
         self.merge_gap_ratio = merge_gap_ratio
-        # Some label fonts on these cards (e.g. "NIK") have naturally wide,
-        # uniform letter spacing and can trip the gap check even when
-        # correctly read. Only trust the gap signal when tesseract's own
-        # confidence for that word isn't already very high.
         self.merge_confidence_ceiling = merge_confidence_ceiling
 
     def _max_gap_ratio(self, arr, left, top, width, height):
@@ -97,11 +85,6 @@ class OCREngine:
             return best_candidate
 
     def extract(self, pdf_path):
-        """Returns (raw_text, flagged_words, nik_candidate).
-        flagged_words is a list of raw OCR tokens that are either below
-        self.confidence_threshold or show signs of a silently-merged space.
-        nik_candidate is a best-effort digit-only re-read of the NIK field
-        (see _extract_nik_candidate), or None if the label wasn't found."""
         try:
             doc = fitz.open(pdf_path)
         except Exception as e:

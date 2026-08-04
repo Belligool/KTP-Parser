@@ -29,6 +29,7 @@ def main():
             if raw_text:
                 parsed_data = extractor.extract_data(raw_text, low_confidence_words, nik_candidate)
                 parsed_data['Source File'] = filename
+                parsed_data['PDF_Path'] = os.path.abspath(pdf_path)
                 all_ktp_records.append(parsed_data)
             else:
                 print(f"  -> WARNING: No text could be extracted from {filename}")
@@ -47,11 +48,15 @@ def main():
         
         red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
         red_font = Font(color="9C0006")
+        link_font = Font(color="0000FF", underline="single")
         
         for row_idx, record in enumerate(all_ktp_records, start=2):
             row_data = [record.get(h, "") for h in headers]
             ws.append(row_data)
-            
+            file_cell = ws.cell(row=row_idx, column=1)
+            if "PDF_Path" in record:
+                file_cell.hyperlink = record["PDF_Path"]
+                file_cell.font = link_font
             if record.get("Review Needed", ""):
                 review_cell = ws.cell(row=row_idx, column=6)
                 review_cell.fill = red_fill

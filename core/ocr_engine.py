@@ -4,28 +4,33 @@ import io
 import os
 import re
 import numpy as np
+from collections import Counter
 from PIL import Image
-from utils.image_prep import *
-from utils.digit_segmenter import segment_digits
-from utils.digit_classifier import classify_digit
+from utils.image_prep import preprocess_for_ocr
 
 class OCREngine:
     def __init__(self, confidence_threshold=60, merge_gap_ratio=0.25, merge_confidence_ceiling=90):
-        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe' #replace this with your tesseract folder
-        # Words tesseract reports below this confidence (0-100) get flagged
-        # for manual review instead of silently passed through.
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        '''
+        Words tesseract reports below this confidence (0-100) get flagged
+        for manual review instead of silently passed through.
+        '''
         self.confidence_threshold = confidence_threshold
-        # Tesseract's confidence score reflects certainty about character
-        # shapes, not whether it inserted a space correctly, so a silently
-        # merged word (e.g. "SUESTORM" from "SUE STORM") can still score high
-        # confidence. As a second, independent check, we look for an unusually
-        # wide gap of blank pixels *inside* a single word's own bounding box,
-        # relative to that word's own height.
+        '''
+        Tesseract's confidence score reflects certainty about character
+        shapes, not whether it inserted a space correctly, so a silently
+        merged word (e.g. "SUESTORM" from "SUE STORM") can still score high
+        confidence. As a second, independent check, we look for an unusually
+        wide gap of blank pixels *inside* a single word's own bounding box,
+        relative to that word's own height.
+        '''
         self.merge_gap_ratio = merge_gap_ratio
-        # Some label fonts on these cards (e.g. "NIK") have naturally wide,
-        # uniform letter spacing and can trip the gap check even when
-        # correctly read. Only trust the gap signal when tesseract's own
-        # confidence for that word isn't already very high.
+        '''
+        Some label fonts on these cards (e.g. "NIK") have naturally wide,
+        uniform letter spacing and can trip the gap check even when
+        correctly read. Only trust the gap signal when tesseract's own
+        confidence for that word isn't already very high.
+        '''
         self.merge_confidence_ceiling = merge_confidence_ceiling
 
     def _max_gap_ratio(self, arr, left, top, width, height):
@@ -44,64 +49,59 @@ class OCREngine:
                 gap_len = 0
         return max_gap / height
 
-    def _extract_nik_candidate(self, original_img, data):
-        n = len(data["text"])
-        best_candidate = None
-        best_score = -999
-        configs = [
-            "--psm 7 -c tessedit_char_whitelist=0123456789",
-            "--psm 8 -c tessedit_char_whitelist=0123456789",
-            "--psm 13 -c tessedit_char_whitelist=0123456789",
-        ]
+    def _extract_nik_candidate(self, clean_img, data):
+        """
+        Find the 'NIK' label and re-OCR the value to its right using a
+        digit-only whitelist. NIK is always exactly 16 digits, and some
+        cards use a stylized digital font where a single OCR pass is
+        unstable, different scales/psm settings can disagree on the exact
+        digits. This tries several combinations and takes a majority vote,
+        preferring results that land on exactly 16 digits. Still a
+        best-effort candidate, not ground truth, callers should keep
+        treating a wrong-length or low-agreement result as needing review.
+        """
+        n = len(data['text'])
         for i in range(n):
-            word = data["text"][i].strip().upper()
-            normalized = (
-                word.replace("1", "I")
-                    .replace("L", "I")
-                    .replace("|", "I")
-                    .replace(":", "")
-                    .replace(".", "")
-            )
-            if normalized != "NIK":
+            word = data['text'][i].strip().upper().rstrip(':;-. ')
+            if word != 'NIK':
                 continue
-            left = data["left"][i]
-            top = data["top"][i]
-            width = data["width"][i]
-            height = data["height"][i]
-            img_w, img_h = original_img.size
-            x1 = left + width + int(height * 1.0)
-            x2 = min(img_w, x1 + int(img_w * 0.45))
-            y1 = max(0, top - int(height * 0.5))
-            y2 = min(img_h, top + int(height * 1.5))
-            crop = original_img.crop((x1, y1, x2, y2))
-            digit_images = segment_digits(crop)
-            if len(digit_images) != 16:
-                digit_images = []
-            if len(digit_images) >= 14:
-                nik = ""
-                for digit in digit_images:
-                    nik += self._ocr_single_digit(digit)
-                if len(nik) == 16:
-                    return nik
-            for variant in preprocess_nik(crop):
-                for cfg in configs:
-                    text = pytesseract.image_to_string(variant, lang="eng", config=cfg)
-                    digits = re.sub(r"\D", "", text)
-                    score = 0
-                    score -= abs(16 - len(digits)) * 20
-                    if len(digits) == 16:
-                        score += 100
-                    if score > best_score:
-                        best_score = score
-                        best_candidate = digits
-            return best_candidate
+            label_right = data['left'][i] + data['width'][i]
+            top, height = data['top'][i], data['height'][i]
+            img_w, img_h = clean_img.size
+            pad = int(height * 0.3)
+            crop = clean_img.crop((
+                label_right, max(0, top - pad),
+                img_w, min(img_h, top + height + pad)
+            ))
+
+            candidates = []
+            for scale in (2, 3, 4, 5):
+                big = crop.resize((crop.width * scale, crop.height * scale), Image.LANCZOS)
+                for psm in (7, 8):
+                    text = pytesseract.image_to_string(
+                        big, lang='eng',
+                        config=f'--psm {psm} -c tessedit_char_whitelist=0123456789'
+                    )
+                    digits = re.sub(r'\D', '', text)
+                    if digits:
+                        candidates.append(digits)
+
+            if not candidates:
+                return None
+            exact16 = [c for c in candidates if len(c) == 16]
+            pool = exact16 if exact16 else candidates
+            most_common, _ = Counter(pool).most_common(1)[0]
+            return most_common
+        return None
 
     def extract(self, pdf_path):
-        """Returns (raw_text, flagged_words, nik_candidate).
+        """
+        Returns (raw_text, flagged_words, nik_candidate).
         flagged_words is a list of raw OCR tokens that are either below
         self.confidence_threshold or show signs of a silently-merged space.
         nik_candidate is a best-effort digit-only re-read of the NIK field
-        (see _extract_nik_candidate), or None if the label wasn't found."""
+        (see _extract_nik_candidate), or None if the label wasn't found.
+        """
         try:
             doc = fitz.open(pdf_path)
         except Exception as e:
@@ -118,7 +118,6 @@ class OCREngine:
             pix = page.get_pixmap(matrix=mat)
             img = Image.open(io.BytesIO(pix.tobytes("png")))
             clean_img = preprocess_for_ocr(img)
-            gray_original = img.convert("L")
             debug_dir = 'tests/results/debug_images/'
             os.makedirs(debug_dir, exist_ok=True)
             base_name = os.path.basename(pdf_path).replace('.pdf', f'_page_{page_num}.png')
@@ -153,9 +152,6 @@ class OCREngine:
                     flagged_words.append(word)
  
             if nik_candidate is None:
-                nik_candidate = self._extract_nik_candidate(gray_original, data)
+                nik_candidate = self._extract_nik_candidate(clean_img, data)
  
         return raw_text, flagged_words, nik_candidate
-
-    def _ocr_single_digit(self, img):
-        return classify_digit(img)

@@ -1,5 +1,6 @@
 import os
 import time
+import csv
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font
 from openpyxl.utils import get_column_letter
@@ -72,9 +73,16 @@ def main():
 
         wb.save(excel_filename)
         
-        
+        csv_filename = os.path.join(output_dir, "ktp_export_results.csv")
+        with open(csv_filename, "w", newline="", encoding="utf-8-sig") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(headers)
+            for record in all_ktp_records:
+                writer.writerow([record.get(h, "") for h in headers])
         print(f"\n- Woo Yessir -")
-        print(f"Exported {len(all_ktp_records)} KTP records to {excel_filename}")
+        print(f"Exported {len(all_ktp_records)} KTP records to:")
+        print(f" XLSX : {excel_filename}")
+        print(f" CSV  : {csv_filename}")
     else:
         print("\nNo KTP data was extracted from the batch.")
 

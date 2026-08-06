@@ -1,4 +1,7 @@
 tests/results/ktp_export_results.xlsx
+tests/results/~$ktp_export_results.xlsx
+tests/results/ktp_export_results.csv
+tests/results/~$ktp_export_results.csv
 tests/results/debug_images/*
 tests/sample_pdfs/*
 tests/ktp test.psd
